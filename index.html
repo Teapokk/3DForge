@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DForge</title>
+
+<style>
+:root{
+    --bg:#0b1120;
+    --panel:#111827;
+    --panel2:#1f2937;
+    --accent:#3b82f6;
+    --text:#f8fafc;
+    --muted:#94a3b8;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Inter,system-ui,sans-serif;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    overflow:hidden;
+}
+
+#app{
+    display:flex;
+    height:100vh;
+}
+
+#sidebar{
+    width:280px;
+    background:var(--panel);
+    border-right:1px solid #1e293b;
+    transition:.25s;
+    display:flex;
+    flex-direction:column;
+}
+
+#sidebar.closed{
+    width:0;
+    overflow:hidden;
+}
+
+.logo{
+    padding:20px;
+    font-size:24px;
+    font-weight:700;
+    border-bottom:1px solid #1e293b;
+}
+
+.nav{
+    padding:15px;
+}
+
+.nav button{
+    width:100%;
+    border:none;
+    background:none;
+    color:var(--text);
+    text-align:left;
+    padding:14px;
+    border-radius:12px;
+    cursor:pointer;
+    margin-bottom:6px;
+    transition:.2s;
+}
+
+.nav button:hover{
+    background:var(--panel2);
+}
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+.topbar{
+    height:70px;
+    border-bottom:1px solid #1e293b;
+    display:flex;
+    align-items:center;
+    gap:15px;
+    padding:0 20px;
+}
+
+#menuBtn{
+    border:none;
+    background:none;
+    color:white;
+    font-size:26px;
+    cursor:pointer;
+}
+
+.search{
+    flex:1;
+}
+
+.search input{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:12px;
+    background:var(--panel);
+    color:white;
+}
+
+.new-btn{
+    border:none;
+    background:var(--accent);
+    color:white;
+    padding:12px 18px;
+    border-radius:12px;
+    cursor:pointer;
+}
+
+.content{
+    flex:1;
+    overflow:auto;
+    padding:25px;
+}
+
+.projects{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:var(--panel);
+    border:1px solid #1e293b;
+    border-radius:18px;
+    overflow:hidden;
+    transition:.2s;
+}
+
+.card:hover{
+    transform:translateY(-4px);
+    border-color:var(--accent);
+}
+
+.preview{
+    height:160px;
+    background:linear-gradient(
+        135deg,
+        #1e293b,
+        #334155
+    );
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#64748b;
+}
+
+.info{
+    padding:15px;
+}
+
+.name{
+    font-size:18px;
+    margin-bottom:8px;
+}
+
+.date{
+    color:var(--muted);
+    font-size:14px;
+}
+
+.empty{
+    text-align:center;
+    color:var(--muted);
+    margin-top:50px;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+    <aside id="sidebar">
+
+        <div class="logo">
+            ⬢ 3DForge
+        </div>
+
+        <div class="nav">
+            <button>Dashboard</button>
+            <button>Projects</button>
+            <button>Assets</button>
+            <button>Plugins</button>
+            <button>Settings</button>
+        </div>
+
+    </aside>
+
+    <main id="main">
+
+        <div class="topbar">
+
+            <button id="menuBtn">
+                ☰
+            </button>
+
+            <div class="search">
+                <input
+                    id="search"
+                    placeholder="Search projects..."
+                >
+            </div>
+
+            <button
+                id="newProject"
+                class="new-btn">
+                New Project
+            </button>
+
+        </div>
+
+        <div class="content">
+
+            <div
+                id="projects"
+                class="projects">
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+const DB_NAME = "3DForgeDB";
+let db;
+
+async function openDB(){
+    return new Promise((res,rej)=>{
+
+        const req =
+        indexedDB.open(DB_NAME,1);
+
+        req.onupgradeneeded=e=>{
+
+            const db =
+            e.target.result;
+
+            if(
+                !db.objectStoreNames
+                .contains("projects")
+            ){
+                db.createObjectStore(
+                    "projects",
+                    {
+                        keyPath:"id",
+                        autoIncrement:true
+                    }
+                );
+            }
+        };
+
+        req.onsuccess=()=>{
+            db=req.result;
+            res();
+        };
+
+        req.onerror=()=>rej();
+    });
+}
+
+async function getProjects(){
+
+    return new Promise((res,rej)=>{
+
+        const tx =
+        db.transaction(
+            "projects",
+            "readonly"
+        );
+
+        const store =
+        tx.objectStore(
+            "projects"
+        );
+
+        const req =
+        store.getAll();
+
+        req.onsuccess=
+        ()=>res(req.result);
+
+        req.onerror=
+        ()=>rej();
+    });
+}
+
+async function createProject(name){
+
+    return new Promise((res,rej)=>{
+
+        const tx =
+        db.transaction(
+            "projects",
+            "readwrite"
+        );
+
+        const store =
+        tx.objectStore(
+            "projects"
+        );
+
+        const req =
+        store.add({
+            name,
+            updatedAt:Date.now(),
+            thumbnail:null
+        });
+
+        req.onsuccess=res;
+        req.onerror=rej;
+    });
+}
+
+async function renderProjects(){
+
+    const container =
+    document.getElementById(
+        "projects"
+    );
+
+    let projects =
+    await getProjects();
+
+    const search =
+    document.getElementById(
+        "search"
+    ).value.toLowerCase();
+
+    projects =
+    projects.filter(
+        p=>
+        p.name
+        .toLowerCase()
+        .includes(search)
+    );
+
+    container.innerHTML="";
+
+    if(!projects.length){
+
+        container.innerHTML=`
+        <div class="empty">
+            No projects found
+        </div>
+        `;
+
+        return;
+    }
+
+    projects
+    .sort(
+        (a,b)=>
+        b.updatedAt-a.updatedAt
+    )
+    .forEach(project=>{
+
+        const card =
+        document.createElement(
+            "div"
+        );
+
+        card.className="card";
+
+        card.innerHTML=`
+            <div class="preview">
+                Preview
+            </div>
+
+            <div class="info">
+
+                <div class="name">
+                    ${project.name}
+                </div>
+
+                <div class="date">
+                    ${new Date(
+                        project.updatedAt
+                    ).toLocaleString()}
+                </div>
+
+            </div>
+        `;
+
+        container.appendChild(
+            card
+        );
+    });
+}
+
+document
+.getElementById("menuBtn")
+.onclick=()=>{
+
+    document
+    .getElementById("sidebar")
+    .classList
+    .toggle("closed");
+};
+
+document
+.getElementById("newProject")
+.onclick=async()=>{
+
+    const name =
+    prompt(
+        "Project name:"
+    );
+
+    if(!name) return;
+
+    await createProject(name);
+
+    renderProjects();
+};
+
+document
+.getElementById("search")
+.addEventListener(
+    "input",
+    renderProjects
+);
+
+(async()=>{
+
+    await openDB();
+
+    renderProjects();
+
+})();
+</script>
+
+</body>
+</html>
